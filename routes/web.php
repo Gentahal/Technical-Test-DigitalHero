@@ -22,3 +22,5 @@ Route::get('/', [BookingController::class, 'index'])->name('booking.index');
 Route::post('/booking', [BookingController::class, 'store'])->name('booking.store');
 Route::get('/booking/{booking}/payment', [BookingController::class, 'payment'])->name('booking.payment');
 Route::get('/booking/success', [BookingController::class, 'success'])->name('booking.success');
+
+Route::post('/booking/callback', [BookingController::class, 'handleCallback'])->name('booking.callback');

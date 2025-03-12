@@ -1,10 +1,10 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Midtrans\Config;
 use Midtrans\Snap;
 
@@ -20,8 +20,8 @@ class BookingController extends Controller
     {
         $request->validate([
             'customer_name' => 'required',
-            'booking_date' => 'required|date',
-            'service_id' => 'required|exists:services,id',
+            'booking_date'  => 'required|date',
+            'service_id'    => 'required|exists:services,id',
         ]);
 
         // Ambil data layanan yang dipilih
@@ -37,10 +37,10 @@ class BookingController extends Controller
 
         // Simpan data booking
         $booking = Booking::create([
-            'customer_name' => $request->customer_name,
-            'booking_date' => $request->booking_date,
-            'service_id' => $request->service_id,
-            'total_price' => $totalPrice,
+            'customer_name'  => $request->customer_name,
+            'booking_date'   => $request->booking_date,
+            'service_id'     => $request->service_id,
+            'total_price'    => $totalPrice,
             'payment_status' => 'pending', // Status awal pembayaran
         ]);
 
@@ -52,10 +52,10 @@ class BookingController extends Controller
     {
         $service = Service::all();
         // Konfigurasi Midtrans
-        Config::$serverKey = config('services.midtrans.server_key');
+        Config::$serverKey    = config('services.midtrans.server_key');
         Config::$isProduction = false;
-        Config::$isSanitized = true;
-        Config::$is3ds = true;
+        Config::$isSanitized  = true;
+        Config::$is3ds        = true;
 
         // Buat order_id yang unik
         $orderId = 'BOOKING-' . $booking->id . '-' . time();
@@ -63,10 +63,10 @@ class BookingController extends Controller
         // Parameter untuk Midtrans
         $params = [
             'transaction_details' => [
-                'order_id' => $orderId,
+                'order_id'     => $orderId,
                 'gross_amount' => $booking->total_price,
             ],
-            'customer_details' => [
+            'customer_details'    => [
                 'first_name' => $booking->customer_name,
             ],
         ];
@@ -80,9 +80,34 @@ class BookingController extends Controller
         return view('booking.payment', compact('booking', 'snapToken', 'service'));
     }
 
+    public function handleCallback(Request $request)
+    {
+        $payload = $request->all();
+
+        Log::info('Midtrans Callback:', $payload); // Log payload untuk debugging
+
+        // Ambil order_id dari payload
+        $orderId           = $payload['order_id'];
+        $statusCode        = $payload['status_code'];
+        $transactionStatus = $payload['transaction_status'];
+
+        // Cari booking berdasarkan order_id
+        $booking = Booking::where('id', str_replace('BOOKING-', '', explode('-', $orderId)[0]))->first();
+
+        if ($booking) {
+            // Update status pembayaran jika transaksi berhasil
+            if ($statusCode == 200 && $transactionStatus == 'settlement') {
+                $booking->update(['payment_status' => 'success']);
+            }
+        }
+
+        return response()->json(['status' => 'success']);
+    }
+
     public function success(Request $request)
     {
-        // Halaman konfirmasi setelah pembayaran berhasil
-        return view('booking.success');
+        // Ambil booking terakhir untuk contoh (sesuaikan dengan kebutuhan)
+        $booking = Booking::latest()->first();
+        return view('booking.success', compact('booking'));
     }
 }
