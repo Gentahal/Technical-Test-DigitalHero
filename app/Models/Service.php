@@ -11,7 +11,6 @@ class Service extends Model
 
     protected $fillable = ['name', 'price'];
 
-    // Definisikan relasi ke model Booking
     public function bookings()
     {
         return $this->hasMany(Booking::class);

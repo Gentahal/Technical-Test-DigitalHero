@@ -24,43 +24,36 @@ class BookingController extends Controller
             'service_id'    => 'required|exists:services,id',
         ]);
 
-        // Ambil data layanan yang dipilih
         $service = Service::find($request->service_id);
 
-        // Hitung total harga
         $totalPrice = $service->price;
 
-        // Weekend surcharge (Sabtu = 6, Minggu = 7)
         if (in_array(date('N', strtotime($request->booking_date)), [6, 7])) {
-            $totalPrice += 50000; // Tambahan Rp 50.000 untuk weekend
+            $totalPrice += 50000;
         }
 
-        // Simpan data booking
         $booking = Booking::create([
             'customer_name'  => $request->customer_name,
             'booking_date'   => $request->booking_date,
             'service_id'     => $request->service_id,
             'total_price'    => $totalPrice,
-            'payment_status' => 'pending', // Status awal pembayaran
+            'payment_status' => 'pending',
         ]);
 
-        // Redirect ke halaman pembayaran
         return redirect()->route('booking.payment', $booking);
     }
 
     public function payment(Booking $booking)
     {
         $service = Service::all();
-        // Konfigurasi Midtrans
+
         Config::$serverKey    = config('services.midtrans.server_key');
         Config::$isProduction = false;
         Config::$isSanitized  = true;
         Config::$is3ds        = true;
 
-        // Buat order_id yang unik
         $orderId = 'BOOKING-' . $booking->id . '-' . time();
 
-        // Parameter untuk Midtrans
         $params = [
             'transaction_details' => [
                 'order_id'     => $orderId,
@@ -71,10 +64,8 @@ class BookingController extends Controller
             ],
         ];
 
-        // Generate Snap Token
         $snapToken = Snap::getSnapToken($params);
 
-        // Simpan snap token ke booking (opsional)
         $booking->update(['snap_token' => $snapToken]);
 
         return view('booking.payment', compact('booking', 'snapToken', 'service'));
@@ -83,9 +74,8 @@ class BookingController extends Controller
     public function handleCallback(Request $request)
     {
         $payload = $request->all();
-        Log::info('Midtrans Callback:', $payload); // Logging untuk debugging
+        Log::info('Midtrans Callback:', $payload);
 
-        // Ambil order_id dari payload
         $orderId           = $payload['order_id'] ?? null;
         $statusCode        = $payload['status_code'] ?? null;
         $transactionStatus = $payload['transaction_status'] ?? null;
@@ -101,7 +91,6 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Booking not found'], 404);
         }
 
-        // Update status pembayaran berdasarkan response Midtrans
         if ($transactionStatus === 'settlement' || $transactionStatus === 'capture') {
             $booking->update(['payment_status' => 'success']);
         } elseif (in_array($transactionStatus, ['pending', 'authorize'])) {
@@ -115,7 +104,6 @@ class BookingController extends Controller
 
     public function success(Request $request)
     {
-        // Ambil booking terakhir untuk contoh (sesuaikan dengan kebutuhan)
         $booking = Booking::latest()->first();
         return view('booking.success', compact('booking'));
     }
