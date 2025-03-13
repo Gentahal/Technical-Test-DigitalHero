@@ -83,22 +83,31 @@ class BookingController extends Controller
     public function handleCallback(Request $request)
     {
         $payload = $request->all();
-
-        Log::info('Midtrans Callback:', $payload); // Log payload untuk debugging
+        Log::info('Midtrans Callback:', $payload); // Logging untuk debugging
 
         // Ambil order_id dari payload
-        $orderId           = $payload['order_id'];
-        $statusCode        = $payload['status_code'];
-        $transactionStatus = $payload['transaction_status'];
+        $orderId           = $payload['order_id'] ?? null;
+        $statusCode        = $payload['status_code'] ?? null;
+        $transactionStatus = $payload['transaction_status'] ?? null;
 
-        // Cari booking berdasarkan order_id
-        $booking = Booking::where('id', str_replace('BOOKING-', '', explode('-', $orderId)[0]))->first();
+        if (! $orderId) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid order ID'], 400);
+        }
 
-        if ($booking) {
-            // Update status pembayaran jika transaksi berhasil
-            if ($statusCode == 200 && $transactionStatus == 'settlement') {
-                $booking->update(['payment_status' => 'success']);
-            }
+        $bookingId = explode('-', $orderId)[1];
+        $booking   = Booking::find($bookingId);
+
+        if (! $booking) {
+            return response()->json(['status' => 'error', 'message' => 'Booking not found'], 404);
+        }
+
+        // Update status pembayaran berdasarkan response Midtrans
+        if ($transactionStatus === 'settlement' || $transactionStatus === 'capture') {
+            $booking->update(['payment_status' => 'success']);
+        } elseif (in_array($transactionStatus, ['pending', 'authorize'])) {
+            $booking->update(['payment_status' => 'pending']);
+        } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire', 'failure'])) {
+            $booking->update(['payment_status' => 'failed']);
         }
 
         return response()->json(['status' => 'success']);

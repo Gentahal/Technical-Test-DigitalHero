@@ -18,6 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('service_id');
             $table->decimal('total_price', 10, 2);
             $table->string('payment_status')->default('pending');
+            $table->string('snap_token')->nullable();
             $table->timestamps();
         });
     }

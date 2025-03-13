@@ -15,6 +15,7 @@ class Booking extends Model
         'service_id',
         'total_price',
         'payment_status',
+        'snap_token'
     ];
 
     // Definisikan relasi ke model Service

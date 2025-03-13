@@ -11,7 +11,7 @@
         <div class="row justify-content-center">
             <div class="col-md-6">
                 <div class="card shadow-lg p-4">
-                    <h2 class="text-center mb-4">Booking Rental</h2>
+                    <h2 class="text-center mb-4">Booking</h2>
                     <form action="{{ route('booking.store') }}" method="POST">
                         @csrf
 
